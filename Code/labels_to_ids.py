@@ -1,4 +1,5 @@
 task7_labels_to_ids = {
-    '0' : 0, 
-    '1' :1
+    'FAVOR' : 0, 
+    'AGAINST' : 1,
+    'NONE' : 2
 }
