@@ -19,12 +19,13 @@ def read_task(location, split = 'train'):
                 # print("--------- \n")
                 # print(row)
                 # print("\n --------- \n")
-                tweet_id = row[0]
+                # tweet_id = row[0]
                 sentence = row[1].strip()
                 label = row[3]
+                topic = row[2]
                 # print("Label: \n")
                 # print(label)
-                data.append((sentence, label))
+                data.append((sentence, label, topic))
 
     return data
 
