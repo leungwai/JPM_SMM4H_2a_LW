@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 import torch
 
+# Global Varibles
+FM = 0
+SAHO = 1
+SC = 2
 
 class dataset(Dataset):
   def __init__(self, all_data, tokenizer, labels_to_ids, max_len):
@@ -13,14 +17,12 @@ class dataset(Dataset):
         self.max_len = max_len
         self.labels_to_ids = labels_to_ids
 
+  # this function is not actually used
   def __getitem__(self, index):
-        print("got to get item")
         # step 1: get the sentence and word labels 
-        sentence = self.data.at[index, 0]
-        print("Sentence: ", sentence)
+        sentence = self.data[index][0]
         #joined_sentnece = ' '.join(sentence)
-        input_label = self.data.at[index, 1]
-        print("Input label: ", input_label)
+        input_label = self.data[index][1]
 
         # step 2: use tokenizer to encode sentence (includes padding/truncation up to max length)
         # BertTokenizerFast provides a handy "return_offsets_mapping" functionality for individual tokens
@@ -43,45 +45,33 @@ class dataset(Dataset):
 
 
 
-def initialize_data(face_masks_tokenizer, stay_at_home_orders_tokenizer, school_closures_tokenizer, initialization_input, input_data, labels_to_ids, shuffle = True):
+def initialize_data(tokenizer, initialization_input, input_data, labels_to_ids, shuffle = True):
     max_len, batch_size = initialization_input
 
-    to_split_data_df = pd.DataFrame.from_records(input_data)
-    print(to_split_data_df)
-
-
-    # splitting the data based on class
-    face_masks_data = to_split_data_df.loc[to_split_data_df[2] == 'face masks']
-    stay_at_home_orders_data = to_split_data_df.loc[to_split_data_df[2] == 'stay at home orders']
-    school_closures_data = to_split_data_df.loc[to_split_data_df[2] == 'school closures']
-    
-    print("\n Face masks data:")
-    print(face_masks_data)
-
-    print("\n stay_at_home_orders_data")
-    print(stay_at_home_orders_data)
-
-    print("\n school closures data")
-    print(school_closures_data)
-
     # Getting separate datasets
-    face_masks_dataset = dataset(face_masks_data, face_masks_tokenizer, labels_to_ids, max_len)
-    stay_at_home_orders_dataset = dataset(stay_at_home_orders_data, stay_at_home_orders_tokenizer, labels_to_ids, max_len)
-    school_closures_dataset = dataset(school_closures_data, school_closures_tokenizer, labels_to_ids, max_len)
+    fm_dataset = dataset(input_data[FM], tokenizer[FM], labels_to_ids, max_len)
+    saho_dataset = dataset(input_data[SAHO], tokenizer[SAHO], labels_to_ids, max_len)
+    sc_dataset = dataset(input_data[SC], tokenizer[SC], labels_to_ids, max_len)
     
-    
-
     params = {'batch_size': batch_size,
                 'shuffle': True,
                 'num_workers': 4
                 }
 
     # Getting separate dataloaders
-    face_masks_loader = DataLoader(face_masks_dataset, **params)
-    stay_at_home_orders_loader = DataLoader(stay_at_home_orders_dataset, **params)
-    school_closures_loader = DataLoader(school_closures_dataset, **params)
+    fm_loader = DataLoader(fm_dataset, **params)
+    saho_loader = DataLoader(saho_dataset, **params)
+    sc_loader = DataLoader(sc_dataset, **params)
+
+#     print("fm data loader size", len(fm_loader))
+#     print("saho data loader size", len(saho_loader))
+#     print("sc data loader size", len(sc_loader))
+#     print("total", len(fm_loader) + len(saho_loader) + len(sc_loader))
+   
+
+    loader = [fm_loader, saho_loader, sc_loader]
     
-    return face_masks_loader, stay_at_home_orders_loader, school_closures_loader
+    return loader
 
 
 
