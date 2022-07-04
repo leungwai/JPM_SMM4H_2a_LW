@@ -17,12 +17,14 @@ class dataset(Dataset):
         self.max_len = max_len
         self.labels_to_ids = labels_to_ids
 
-  # this function is not actually used
   def __getitem__(self, index):
         # step 1: get the sentence and word labels 
         sentence = self.data[index][0]
         #joined_sentnece = ' '.join(sentence)
         input_label = self.data[index][1]
+        topic = self.data[index][2]
+        tweet_id = self.data[index][3]
+        premise = self.data[index][4]
 
         # step 2: use tokenizer to encode sentence (includes padding/truncation up to max length)
         # BertTokenizerFast provides a handy "return_offsets_mapping" functionality for individual tokens
@@ -37,6 +39,10 @@ class dataset(Dataset):
         # step 4: turn everything into PyTorch tensors
         item = {key: torch.as_tensor(val) for key, val in encoding.items()}
         item['labels'] = torch.as_tensor(labels)
+        item['topic'] = topic
+        item['tweet_id'] = tweet_id
+        item['premise'] = premise
+        item['orig_sentence'] = sentence
 
         return item
 
@@ -67,7 +73,6 @@ def initialize_data(tokenizer, initialization_input, input_data, labels_to_ids, 
 #     print("saho data loader size", len(saho_loader))
 #     print("sc data loader size", len(sc_loader))
 #     print("total", len(fm_loader) + len(saho_loader) + len(sc_loader))
-   
 
     loader = [fm_loader, saho_loader, sc_loader]
     
