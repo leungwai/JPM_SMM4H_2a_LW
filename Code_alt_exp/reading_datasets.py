@@ -10,8 +10,14 @@ def load_data(filename):
 
 def read_task(location, split = 'train'):
     filename = location + split + '.tsv'
-
+    
+    # Creating empty array for combined data
     data = []
+
+    # Creating 
+    fm_data = []
+    saho_data = []
+    sc_data = []
     with open(filename) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter='\t')
         for i, row in enumerate(csv_reader):
@@ -20,11 +26,22 @@ def read_task(location, split = 'train'):
                 sentence = row[1].strip()
                 label = row[3]
                 topic = row[2]
-                data.append((sentence, label, topic, tweet_id))
+                premise = row[4]
+                
 
-    # print("Length of data")
-    # print(len(data))
- 
+                if topic == 'face masks':
+                    fm_data.append((sentence, label, topic, tweet_id, premise))
+                elif topic == 'stay at home orders':
+                    saho_data.append((sentence, label, topic, tweet_id, premise))
+                elif topic == 'school closures':
+                    sc_data.append((sentence, label, topic, tweet_id, premise))
+
+    # print("Length of all 3 data")
+    # print(len(fm_data) + len(saho_data) + len(sc_data))
+    # quit()
+
+    data = [fm_data, saho_data, sc_data]
+    
     return data
 
 

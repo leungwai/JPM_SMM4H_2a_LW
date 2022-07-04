@@ -1,8 +1,13 @@
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizerFast
+import pandas as pd
 import numpy as np
 import torch
 
+# Global Varibles
+FM = 0
+SAHO = 1
+SC = 2
 
 class dataset(Dataset):
   def __init__(self, all_data, tokenizer, labels_to_ids, max_len):
@@ -15,10 +20,11 @@ class dataset(Dataset):
   def __getitem__(self, index):
         # step 1: get the sentence and word labels 
         sentence = self.data[index][0]
-        joined_sentnece = ' '.join(sentence)
+        #joined_sentnece = ' '.join(sentence)
         input_label = self.data[index][1]
         topic = self.data[index][2]
         tweet_id = self.data[index][3]
+        premise = self.data[index][4]
 
         # step 2: use tokenizer to encode sentence (includes padding/truncation up to max length)
         # BertTokenizerFast provides a handy "return_offsets_mapping" functionality for individual tokens
@@ -35,11 +41,8 @@ class dataset(Dataset):
         item['labels'] = torch.as_tensor(labels)
         item['topic'] = topic
         item['tweet_id'] = tweet_id
+        item['premise'] = premise
         item['orig_sentence'] = sentence
-
-      #   print("Item")
-      #   print(item)
-      #   quit()
 
         return item
 
@@ -50,17 +53,27 @@ class dataset(Dataset):
 
 def initialize_data(tokenizer, initialization_input, input_data, labels_to_ids, shuffle = True):
     max_len, batch_size = initialization_input
-    data_split = dataset(input_data, tokenizer, labels_to_ids, max_len)
 
-
+    # Getting separate datasets
+    fm_dataset = dataset(input_data[FM], tokenizer[FM], labels_to_ids, max_len)
+    saho_dataset = dataset(input_data[SAHO], tokenizer[SAHO], labels_to_ids, max_len)
+    sc_dataset = dataset(input_data[SC], tokenizer[SC], labels_to_ids, max_len)
+    
     params = {'batch_size': batch_size,
                 'shuffle': True,
                 'num_workers': 4
                 }
 
-    loader = DataLoader(data_split, **params)
+    # Getting separate dataloaders
+    fm_loader = DataLoader(fm_dataset, **params)
+    saho_loader = DataLoader(saho_dataset, **params)
+    sc_loader = DataLoader(sc_dataset, **params)
 
+    print("total", len(fm_loader) + len(saho_loader) + len(sc_loader))
 
+    loader = [fm_loader, saho_loader, sc_loader]
+    
+    
     return loader
 
 

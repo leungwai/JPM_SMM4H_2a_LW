@@ -13,16 +13,10 @@ import time
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
-# Global Varibles
-FM = 0
-SAHO = 1
-SC = 2
-
 def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_grad_norm = 10):
     tr_loss, tr_accuracy = 0, 0
     nb_tr_examples, nb_tr_steps = 0, 0
     tr_preds, tr_labels = [], []
-
     # put model in training mode
     model.train()
     optimizer.zero_grad()
@@ -35,6 +29,7 @@ def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_g
         if (idx + 1) % 20 == 0:
             print('FINSIHED BATCH:', idx, 'of', len(training_loader))
 
+        #loss, tr_logits = model(input_ids=ids, attention_mask=mask, labels=labels)
         output = model(input_ids=ids, attention_mask=mask, labels=labels)
         tr_loss += output[0]
 
@@ -58,7 +53,7 @@ def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_g
 
         tmp_tr_accuracy = accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
         tr_accuracy += tmp_tr_accuracy
-
+    
         # gradient clipping
         torch.nn.utils.clip_grad_norm_(
             parameters=model.parameters(), max_norm=max_grad_norm
@@ -72,6 +67,8 @@ def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_g
 
     epoch_loss = tr_loss / nb_tr_steps
     tr_accuracy = tr_accuracy / nb_tr_steps
+    #print(f"Training loss epoch: {epoch_loss}")
+    #print(f"Training accuracy epoch: {tr_accuracy}")
 
     return model
 
@@ -81,15 +78,17 @@ def testing(model, testing_loader, labels_to_ids, device):
     model.eval()
     
     eval_loss, eval_accuracy = 0, 0
-    eval_f1_score, eval_precision, eval_recall = 0, 0, 0
-    
     nb_eval_examples, nb_eval_steps = 0, 0
+    
+    eval_fm_f1, eval_fm_precision, eval_fm_recall = 0, 0, 0
+    eval_saho_f1, eval_saho_precision, eval_saho_recall = 0, 0, 0
+    eval_sc_f1, eval_sc_precision, eval_sc_recall = 0, 0, 0
+
     eval_preds, eval_labels = [], []
-    eval_tweet_ids, eval_topics, eval_premises, eval_orig_sentences = [], [], [], []
+
+    eval_tweet_ids, eval_topics, eval_orig_sentences = [], [], []
     
     ids_to_labels = dict((v,k) for k,v in labels_to_ids.items())
-
-    overall_prediction_data = []
 
     with torch.no_grad():
         for idx, batch in enumerate(testing_loader):
@@ -97,9 +96,10 @@ def testing(model, testing_loader, labels_to_ids, device):
             ids = batch['input_ids'].to(device, dtype = torch.long)
             mask = batch['attention_mask'].to(device, dtype = torch.long)
             labels = batch['labels'].to(device, dtype = torch.long)
+
+            # to attach back to prediction data later 
             tweet_ids = batch['tweet_id']
             topics = batch['topic']
-            premises = batch['premise']
             orig_sentences = batch['orig_sentence']
             
             #loss, eval_logits = model(input_ids=ids, attention_mask=mask, labels=labels)
@@ -127,65 +127,106 @@ def testing(model, testing_loader, labels_to_ids, device):
             
             eval_labels.extend(labels)
             eval_preds.extend(predictions)
+
             eval_tweet_ids.extend(tweet_ids)
             eval_topics.extend(topics)
-            eval_premises.extend(premises)
             eval_orig_sentences.extend(orig_sentences)
-            
+
             tmp_eval_accuracy = accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
             eval_accuracy += tmp_eval_accuracy
 
-            # calculating the f1_score for ADE label
-            tmp_eval_f1_score = f1_score(labels.cpu().numpy(), predictions.cpu().numpy(), labels=[0,1], average='macro')
-            eval_f1_score += tmp_eval_f1_score
+            test_label = [id.item() for id in labels]
+            test_pred = [id.item() for id in predictions]
 
-            # print("tmp f1: ", tmp_eval_f1_score)
-            # calculating the precision for ADE label
-            tmp_eval_precision = precision_score(labels.cpu().numpy(), predictions.cpu().numpy(), labels=[0,1], average='macro')
-            eval_precision += tmp_eval_precision
-            # print("\n tmp precision: ", tmp_eval_precision)
+            batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+            
+            temp_fm_f1_score, temp_fm_precision, temp_fm_recall, temp_saho_f1_score, temp_saho_precision, temp_saho_recall, temp_sc_f1_score, temp_sc_precision, temp_sc_recall = calculate_f1(batch_prediction_data)
 
-            # calculating the recall for ADE label 
-            tmp_eval_recall = recall_score(labels.cpu().numpy(), predictions.cpu().numpy(), labels=[0,1], average='macro')
-            eval_recall += tmp_eval_recall
-            # print("\n tmp recall: ", tmp_eval_recall)
+            eval_fm_f1 += temp_fm_f1_score
+            eval_fm_precision += temp_fm_precision
+            eval_fm_recall += temp_fm_recall
+            
+            eval_saho_f1 += temp_saho_f1_score
+            eval_saho_precision += temp_saho_precision
+            eval_saho_recall += temp_saho_recall
+            
+            eval_sc_f1 += temp_sc_f1_score
+            eval_sc_precision += temp_sc_precision
+            eval_sc_recall += temp_sc_recall
 
-    labels = [ids_to_labels[id.item()] for id in eval_labels]
-    predictions = [ids_to_labels[id.item()] for id in eval_preds]
-    # print("\n labels:")
-    # print(labels)
 
-    # print("\n predictions")
-    # print(predictions)
+    # labels = [ids_to_labels[id.item()] for id in eval_labels]
+    # predictions = [ids_to_labels[id.item()] for id in eval_preds]
 
-    # print("\n eval_tweet_id")
-    # print(eval_tweet_ids)
-
-    # print("\n eval_premises")
-    # print(eval_premises)
-
-    # print("\n eval_orig_sentences")
-    # print(eval_orig_sentences)
+    labels = [id.item() for id in eval_labels]
+    predictions = [id.item() for id in eval_preds]
     
-    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, eval_premises, labels, predictions), columns=['id', 'text', 'Claim', 'Premise', 'Orig', 'Stance'])
-
-
+    # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
+    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+    
+    
     eval_loss = eval_loss / nb_eval_steps
     eval_accuracy = eval_accuracy / nb_eval_steps
-    eval_f1_score = eval_f1_score / nb_eval_steps
-    eval_precision = eval_precision / nb_eval_steps
-    eval_recall = eval_recall / nb_eval_steps
+    
+    eval_fm_f1 = eval_fm_f1 / nb_eval_steps
+    eval_fm_precision = eval_fm_precision / nb_eval_steps
+    eval_fm_recall = eval_fm_recall / nb_eval_steps
+
+    eval_saho_f1 = eval_saho_f1 / nb_eval_steps
+    eval_saho_precision = eval_saho_precision / nb_eval_steps
+    eval_saho_recall = eval_saho_recall / nb_eval_steps
+
+    eval_sc_f1 = eval_sc_f1 / nb_eval_steps
+    eval_sc_precision = eval_sc_precision / nb_eval_steps
+    eval_sc_recall = eval_sc_recall / nb_eval_steps
+
     #print(f"Validation Loss: {eval_loss}")
     #print(f"Validation Accuracy: {eval_accuracy}")
 
-    return overall_prediction_data, labels, predictions, eval_accuracy, eval_f1_score, eval_precision, eval_recall
+    return overall_prediction_data, eval_accuracy, eval_fm_f1, eval_fm_precision, eval_fm_recall, eval_saho_f1, eval_saho_precision, eval_saho_recall, eval_sc_f1, eval_sc_precision, eval_sc_recall 
 
+
+def calculate_f1(prediction_data):
+    fm_df = prediction_data.loc[prediction_data['Claim'] == 'face masks']
+    saho_df = prediction_data.loc[prediction_data['Claim'] == 'stay at home orders']
+    sc_df = prediction_data.loc[prediction_data['Claim'] == 'school closures']
+
+    # splitting data into label and prediction of respective classes
+    fm_label = fm_df['Orig'].tolist()
+    fm_pred = fm_df['Stance'].tolist()
+
+    saho_label = saho_df['Orig'].tolist()
+    saho_pred = saho_df['Stance'].tolist()
+
+    sc_label = sc_df['Orig'].tolist()
+    sc_pred = sc_df['Stance'].tolist()
+
+    # running performance metrics of each class
+    print("Running performance metrics")
+    fm_f1_score = f1_score(fm_label, fm_pred, labels=[0,1], average='macro')
+    fm_precision = precision_score(fm_label, fm_pred, labels=[0,1], average='macro')
+    fm_recall = recall_score(fm_label, fm_pred, labels=[0,1], average='macro')
+
+    saho_f1_score = f1_score(saho_label, saho_pred, labels=[0,1], average='macro')
+    saho_precision = precision_score(saho_label, saho_pred, labels=[0,1], average='macro')
+    saho_recall = recall_score(saho_label, saho_pred, labels=[0,1], average='macro')
+
+    sc_f1_score = f1_score(sc_label, sc_pred, labels=[0,1], average='macro')
+    sc_precision = precision_score(sc_label, sc_pred, labels=[0,1], average='macro')
+    sc_recall = recall_score(sc_label, sc_pred, labels=[0,1], average='macro')
+
+    print("Finished running performance metrics")
+    return fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, saho_precision, saho_recall
+    
+    
+
+    
 
 def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location):
     #Initialization training parameters
     max_len = 256
-    batch_size = 16
-    grad_step = [1, 1, 1]
+    batch_size = 32
+    grad_step = 1
     learning_rate = 1e-05
     initialization_input = (max_len, batch_size)
 
@@ -200,178 +241,115 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
     #Define tokenizer, model and optimizer
     device = 'cuda' if cuda.is_available() else 'cpu' #save the processing time
-
-    tokenizer = []
-    model = []
     if model_load_flag:
-        fm_tokenizer = AutoTokenizer.from_pretrained(model_load_location)
-        fm_model = AutoModelForSequenceClassification.from_pretrained(model_load_location)
-
-        saho_tokenizer = AutoTokenizer.from_pretrained(model_load_location)
-        saho_model = AutoModelForSequenceClassification.from_pretrained(model_load_location)
-
-        sc_tokenizer = AutoTokenizer.from_pretrained(model_load_location)
-        sc_model = AutoModelForSequenceClassification.from_pretrained(model_load_location)
-        
-        tokenizer = [fm_tokenizer, saho_tokenizer, sc_tokenizer]
-        model = [fm_model, saho_model, sc_model]
-     
+        tokenizer = AutoTokenizer.from_pretrained(model_load_location)
+        model = AutoModelForSequenceClassification.from_pretrained(model_load_location)
     else: 
-        fm_tokenizer =  AutoTokenizer.from_pretrained(model_name, add_prefix_space=True)
-        fm_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=len(labels_to_ids))
+        tokenizer =  AutoTokenizer.from_pretrained(model_name, add_prefix_space=True)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=len(labels_to_ids))
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
+    model.to(device)
 
-        saho_tokenizer =  AutoTokenizer.from_pretrained(model_name, add_prefix_space=True)
-        saho_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=len(labels_to_ids))
-
-        sc_tokenizer =  AutoTokenizer.from_pretrained(model_name, add_prefix_space=True)
-        sc_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=len(labels_to_ids))
-
-        tokenizer = [fm_tokenizer, saho_tokenizer, sc_tokenizer]
-        model = [fm_model, saho_model, sc_model]
-    
-    # Setting up the optimizer for each class
-    fm_optimizer = torch.optim.Adam(params=model[FM].parameters(), lr=learning_rate)
-    saho_optimizer = torch.optim.Adam(params=model[SAHO].parameters(), lr=learning_rate)
-    sc_optimizer = torch.optim.Adam(params=model[SC].parameters(), lr=learning_rate)
-
-    optimizer = [fm_optimizer, saho_optimizer, sc_optimizer]
-    
-    # Sending each of the model to the GPU
-    model[FM].to(device)
-    model[SAHO].to(device)
-    model[SC].to(device)
-
-    #Get dataloaders for each separate topic
+    #Get dataloaders
     train_loader = initialize_data(tokenizer, initialization_input, train_data, labels_to_ids, shuffle = True)
     dev_loader = initialize_data(tokenizer, initialization_input, dev_data, labels_to_ids, shuffle = True)
-
     #test_loader = initialize_data(tokenizer, initialization_input, test_data, labels_to_ids, shuffle = True)#create test loader
 
-    best_dev_predictions = []
+    best_overall_prediction_data = []
+    best_dev_acc = 0
     best_test_acc = 0
     best_epoch = -1
     best_tb_acc = 0
     best_tb_epoch = -1
 
-    best_overall_prediction_data = []
-    best_overall_f1_score = 0
-    best_ind_dev_acc = [0,0,0]
-    best_ind_f1_score = [0,0,0]
+    best_net_f1 = 0
+    best_ind_f1 = [0,0,0]
     best_ind_precision = [0,0,0]
     best_ind_recall = [0,0,0]
 
-    all_epoch_data = pd.DataFrame(index=[0,1,2,3,4,5,6,7,8,9], columns=['overall_f1', 'fm_accuracy', 'fm_f1', 'fm_precision', 'fm_recall', 'saho_accuracy', 'saho_f1', 'saho_precision', 'saho_recall', 'sc_accuracy', 'sc_f1', 'sc_precision', 'sc_recall'])
+    all_epoch_data = pd.DataFrame(index=[0,1,2,3,4,5,6,7,8,9], columns=['overall_f1', 'dev_accuracy', 'fm_f1', 'fm_precision', 'fm_recall', 'saho_f1', 'saho_precision', 'saho_recall', 'sc_f1', 'sc_precision', 'sc_recall'])
+
 
     for epoch in range(n_epochs):
         start = time.time()
         print(f"Training epoch: {epoch + 1}")
 
-        #train face_masks model
-        print("Training fm model")
-        model[FM] = train(epoch, train_loader[FM], model[FM], optimizer[FM], device, grad_step[FM])
-        print("Training saho model")
-        model[SAHO] = train(epoch, train_loader[SAHO], model[SAHO], optimizer[SAHO], device, grad_step[SAHO])
-        print("Training sc model")
-        model[SC] = train(epoch, train_loader[SC], model[SC], optimizer[SC], device, grad_step[SC])
-
-
+        #train model
+        model = train(epoch, train_loader, model, optimizer, device, grad_step)
+        
         #testing and logging
-        print("Testing fm model")
-        fm_overall_prediction_data, fm_dev_labels, fm_dev_predictions, fm_dev_accuracy, fm_dev_f1_score, fm_dev_precision, fm_dev_recall = testing(model[FM], dev_loader[FM], labels_to_ids, device)
-        print('fm DEV ACC:', fm_dev_accuracy)
-        print('fm DEV F1:', fm_dev_f1_score)
-        print('fm DEV PRECISION:', fm_dev_precision)
-        print('fm DEV RECALL:', fm_dev_recall)
+        dev_overall_prediction, dev_accuracy, dev_fm_f1, dev_fm_precision, dev_fm_recall, dev_saho_f1, dev_saho_precision, dev_saho_recall, dev_sc_f1, dev_sc_precision, dev_sc_recall = testing(model, dev_loader, labels_to_ids, device)
+        print('DEV ACC:', dev_accuracy)
+        
+        print(' ')
+        print('fm dev_f1:', dev_fm_f1)
+        print('fm dev_precision:', dev_fm_precision)
+        print('fm dev_recall:', dev_fm_recall)
 
-        print("Testing saho model")
-        saho_overall_prediction_data, saho_dev_labels, saho_dev_predictions, saho_dev_accuracy, saho_dev_f1_score, saho_dev_precision, saho_dev_recall = testing(model[SAHO], dev_loader[SAHO], labels_to_ids, device)
-        print('saho DEV ACC:', saho_dev_accuracy)
-        print('saho DEV F1:', saho_dev_f1_score)
-        print('saho DEV PRECISION:', saho_dev_precision)
-        print('saho DEV RECALL:', saho_dev_recall)
+        print(' ')
+        print('saho dev_f1:', dev_saho_f1)
+        print('saho dev_precision:', dev_saho_precision)
+        print('saho dev_recall:', dev_saho_recall)
 
-        print("Testing sc model")
-        sc_overall_prediction_data, sc_dev_labels, sc_dev_predictions, sc_dev_accuracy, sc_dev_f1_score, sc_dev_precision, sc_dev_recall = testing(model[SC], dev_loader[SC], labels_to_ids, device)
-        print('sc DEV ACC:', sc_dev_accuracy)
-        print('sc DEV F1:', sc_dev_f1_score)
-        print('sc DEV PRECISION:', sc_dev_precision)
-        print('sc DEV RECALL:', sc_dev_recall)
+        print(' ')
+        print('sc dev_f1:', dev_sc_f1)
+        print('sc dev_precision:', dev_sc_precision)
+        print('sc dev_recall:', dev_sc_recall)
 
+        # calculating the net f1 performance
+        dev_net_f1 = (1.0/3.0) * (dev_fm_f1 + dev_saho_f1 + dev_sc_f1)
+
+        print('NET F1:', dev_net_f1)
+        
+        
         #labels_test, predictions_test, test_accuracy = testing(model, test_loader, labels_to_ids, device)
         #print('TEST ACC:', test_accuracy)
-        overall_dev_prediction_data = pd.concat([fm_overall_prediction_data, saho_overall_prediction_data, sc_overall_prediction_data])
-        
-        overall_dev_f1_score = (1/3)*(fm_dev_f1_score + saho_dev_f1_score + sc_dev_f1_score)
-        print('\n DEV OVERALL F1 SCORE:', overall_dev_f1_score)
-        
-        all_epoch_data.at[epoch, 'overall_f1'] = overall_dev_f1_score
 
-        all_epoch_data.at[epoch, 'fm_accuracy'] = fm_dev_accuracy
-        all_epoch_data.at[epoch, 'fm_f1'] = fm_dev_f1_score
-        all_epoch_data.at[epoch, 'fm_precision'] = fm_dev_precision
-        all_epoch_data.at[epoch, 'fm_recall'] = fm_dev_recall
+        all_epoch_data.at[epoch, 'overall_f1'] = dev_net_f1
+        all_epoch_data.at[epoch, 'fm_accuracy'] = dev_accuracy
 
-        all_epoch_data.at[epoch, 'saho_accuracy'] = saho_dev_accuracy
-        all_epoch_data.at[epoch, 'saho_f1'] = saho_dev_f1_score
-        all_epoch_data.at[epoch, 'saho_precision'] = saho_dev_precision
-        all_epoch_data.at[epoch, 'saho_recall'] = saho_dev_recall
+        all_epoch_data.at[epoch, 'fm_f1'] = dev_fm_f1
+        all_epoch_data.at[epoch, 'fm_precision'] = dev_fm_precision
+        all_epoch_data.at[epoch, 'fm_recall'] = dev_fm_recall
 
-        all_epoch_data.at[epoch, 'sc_accuracy'] = sc_dev_accuracy
-        all_epoch_data.at[epoch, 'sc_f1'] = sc_dev_f1_score
-        all_epoch_data.at[epoch, 'sc_precision'] = sc_dev_precision
-        all_epoch_data.at[epoch, 'sc_recall'] = sc_dev_recall        
+        all_epoch_data.at[epoch, 'saho_f1'] = dev_saho_f1
+        all_epoch_data.at[epoch, 'saho_precision'] = dev_saho_precision
+        all_epoch_data.at[epoch, 'saho_recall'] = dev_saho_recall  
+
+        all_epoch_data.at[epoch, 'sc_f1'] = dev_sc_f1
+        all_epoch_data.at[epoch, 'sc_precision'] = dev_sc_precision
+        all_epoch_data.at[epoch, 'sc_recall'] = dev_sc_recall
 
         #saving model
-        if overall_dev_f1_score > best_overall_f1_score:
-            best_overall_f1_score = overall_dev_f1_score
-
-            best_ind_dev_acc[FM] = fm_dev_accuracy
-            best_ind_f1_score[FM] = fm_dev_f1_score
-            best_ind_precision[FM] = fm_dev_precision
-            best_ind_recall[FM] = fm_dev_recall
-
-            best_ind_dev_acc[SAHO] = saho_dev_accuracy
-            best_ind_f1_score[SAHO] = saho_dev_f1_score
-            best_ind_precision[SAHO] = saho_dev_precision
-            best_ind_recall[SAHO] = saho_dev_recall
-
-            best_ind_dev_acc[SC] = sc_dev_accuracy
-            best_ind_f1_score[SC] = sc_dev_f1_score
-            best_ind_precision[SC] = sc_dev_precision
-            best_ind_recall[SC] = sc_dev_recall
+        if dev_net_f1 > best_net_f1:
+            best_net_f1 = dev_net_f1
+            best_dev_acc = dev_accuracy
             
-            best_overall_prediction_data = overall_dev_prediction_data
-
             #best_test_acc = test_accuracy
             best_epoch = epoch
-            
-            #saving the best predictions so far
-            best_dev_predictions.clear()
-            best_dev_predictions.append(fm_dev_predictions)
-            best_dev_predictions.append(saho_dev_predictions)
-            best_dev_predictions.append(sc_dev_predictions)
 
+            best_ind_f1 = [dev_fm_f1, dev_saho_f1, dev_sc_f1]
+            best_ind_precision = [dev_fm_precision, dev_saho_precision, dev_sc_precision]
+            best_ind_recall = [dev_fm_recall, dev_saho_recall, dev_saho_recall]
+
+            best_overall_prediction_data = dev_overall_prediction
+            
             if model_save_flag:
-                for i in range(3):
-                    os.makedirs(model_save_location[i], exist_ok=True)
-                    tokenizer[i].save_pretrained(model_save_location[i])
-                    model[i].save_pretrained(model_save_location[i])
+                os.makedirs(model_save_location, exist_ok=True)
+                tokenizer.save_pretrained(model_save_location)
+                model.save_pretrained(model_save_location)
 
         '''if best_tb_acc < test_accuracy_tb:
             best_tb_acc = test_accuracy_tb
             best_tb_epoch = epoch'''
 
         now = time.time()
-        print('BEST ACCURACY [FM] --> ', 'DEV:', round(best_ind_dev_acc[FM], 5))
-        print('BEST ACCURACY [SAHO] --> ', 'DEV:', round(best_ind_dev_acc[SAHO], 5))
-        print('BEST ACCURACY [SC] --> ', 'DEV:', round(best_ind_dev_acc[SC], 5))
-        print('BEST F1 --> ', 'DEV:', round(best_overall_f1_score, 5))
-        # print('BEST PRECISION --> ', 'DEV:', round(best_precision, 5))
-        # print('BEST RECALL --> ', 'DEV:', round(best_recall, 5))
+        print('BEST ACCURACY --> ', 'DEV:', round(best_dev_acc, 5))
+        print('BEST NET F1 --> ', 'DEV:', round(best_net_f1, 5))
         print('TIME PER EPOCH:', (now-start)/60 )
         print()
 
-    return best_overall_prediction_data, best_ind_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_overall_f1_score, best_ind_f1_score, best_ind_precision, best_ind_recall, all_epoch_data
+    return best_overall_prediction_data, best_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_net_f1, best_ind_f1, best_ind_precision, best_ind_recall, all_epoch_data
 
 
 
@@ -386,16 +364,16 @@ if __name__ == '__main__':
     model_load_flag = False
 
     #setting up the arrays to save data for all loops, models, and epochs
-
+    
     # accuracy
-    all_best_ind_dev_acc = pd.DataFrame(index=[0,1,2,3,4], columns=models)
+    all_best_dev_acc = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     all_best_test_acc = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     all_best_tb_acc = pd.DataFrame(index=[0,1,2,3,4], columns=models)
-
+    
     # epoch
     all_best_epoch = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     all_best_tb_epoch = pd.DataFrame(index=[0,1,2,3,4], columns=models)
-
+    
     # factors to calculate final f1 performance metric
     all_best_ind_f1_score = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     all_best_ind_precision = pd.DataFrame(index=[0,1,2,3,4], columns=models)
@@ -406,60 +384,58 @@ if __name__ == '__main__':
 
     # epoch data
     all_epoch_data = pd.DataFrame(index=[0,1,2,3,4], columns=models)
-
-
+    
 
     for loop_index in range(1):
         for model_name in models:
 
-            print('Running loop', loop_index, ': \n')
-            fm_model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/face_masks/' 
-            saho_model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/stay_at_home_orders/' 
-            sc_model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/school_closures/' 
-            model_save_location = [fm_model_save_location, saho_model_save_location, sc_model_save_location]
-
-            result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/'
-            unformatted_result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/unformatted_prediction_results.tsv' 
-            formatted_result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/formatted_prediction_results.tsv' 
+            model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
             model_load_location = None
 
-            prediction_result_round, best_ind_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_overall_f1_score, best_ind_f1_score, best_ind_precision, best_ind_recall, epoch_data = main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location)
+            result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/'
 
-            # accuracy
-            all_best_ind_dev_acc.at[loop_index, model_name] = best_ind_dev_acc
+            unformatted_result_save_location = result_save_location + 'unformatted_result.tsv'
+            formatted_result_save_location = result_save_location + 'formatted_result.tsv'
+
+            best_prediction_result, best_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_overall_f1_score, best_ind_f1_score, best_ind_precision, best_ind_recall, epoch_data = main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location)
+
+
+            # Getting accuracy
+            all_best_dev_acc.at[loop_index, model_name] = best_dev_acc
             all_best_test_acc.at[loop_index, model_name] = best_test_acc
             all_best_tb_acc.at[loop_index, model_name] = best_tb_acc
-
-            # best epoch data
+            
+            # Getting best epoch data
             all_best_epoch.at[loop_index, model_name] = best_epoch
             all_best_tb_epoch.at[loop_index, model_name] = best_tb_epoch
 
-            # factors to calculate performance metric 
+            # Getting best overall f1 score
+            all_best_overall_f1_score.at[loop_index, model_name] = best_overall_f1_score
+            
+            # Getting best individual data (by category)
             all_best_ind_f1_score.at[loop_index, model_name] = best_ind_f1_score
             all_best_ind_precision.at[loop_index, model_name] = best_ind_precision
             all_best_ind_recall.at[loop_index, model_name] = best_ind_recall
 
-            # final factors
-            all_best_overall_f1_score.at[loop_index, model_name] = best_overall_f1_score
+            # Get all epoch info 
             all_epoch_data.at[loop_index, model_name] = epoch_data
 
             print("\n Prediction results")
-            print(prediction_result_round)
-            formatted_prediction_results = prediction_result_round.drop(columns=['Premise', 'Orig'])
+            print(best_prediction_result)
+            formatted_prediction_result = best_prediction_result.drop(columns=['Orig'])
 
             os.makedirs(result_save_location, exist_ok=True)
-            prediction_result_round.to_csv(unformatted_result_save_location, sep='\t', index=False)
-            formatted_prediction_results.to_csv(formatted_result_save_location, sep='\t', index=False)
+            best_prediction_result.to_csv(unformatted_result_save_location, sep='\t', index=False)
+            formatted_prediction_result.to_csv(formatted_result_save_location, sep='\t', index=False)
 
-            print("Quit after printing predictions and saving it to file")
-            quit()
+            print("Result files saved")
 
     # printing results for analysis
     print("\n All best overall f1 score")
     print(all_best_overall_f1_score)
 
-    print("\n All best ind dev acc")
-    print(all_best_ind_dev_acc)
+    print("\n All best dev acc")
+    print(all_best_dev_acc)
 
     print("\n All best f1 score")
     print(all_best_ind_f1_score)
@@ -474,12 +450,18 @@ if __name__ == '__main__':
     print(all_epoch_data)
 
     #saving all results into tsv
-    all_best_overall_f1_score.to_csv('results/all_best_overall_f1_score.tsv', sep='\t')
-    all_best_ind_dev_acc.to_csv('results/all_best_ind_dev_acc.tsv', sep='\t')
-    all_best_ind_f1_score.to_csv('results/all_best_ind_f1_score.tsv', sep='\t')
-    all_best_ind_precision.to_csv('results/all_best_ind_precision.tsv', sep='\t')
-    all_best_ind_recall.to_csv('results/all_best_ind_recall.tsv', sep='\t')
-    all_epoch_data.to_csv('results/all_epoch_data.tsv', sep='\t')
+
+    os.makedirs('../results/', exist_ok=True)
+    all_best_overall_f1_score.to_csv('../results/all_best_overall_f1_score.tsv', sep='\t')
+    all_best_dev_acc.to_csv('../results/all_best_dev_acc.tsv', sep='\t')
+    all_best_ind_f1_score.to_csv('../results/all_best_ind_f1_score.tsv', sep='\t')
+    all_best_ind_precision.to_csv('../results/all_best_ind_precision.tsv', sep='\t')
+    all_best_ind_recall.to_csv('../results/all_best_ind_recall.tsv', sep='\t')
+    all_epoch_data.to_csv('../results/all_epoch_data.tsv', sep='\t')
+
+    print("Everything successfully completed")
+
+    
 
 
 
