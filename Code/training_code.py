@@ -356,7 +356,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
 
 if __name__ == '__main__':
-    n_epochs = 10
+    n_epochs = 1
     models = ['bert-base-uncased', 'roberta-base']
     
     #model saving parameters
@@ -386,7 +386,7 @@ if __name__ == '__main__':
     all_epoch_data = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     
 
-    for loop_index in range(5):
+    for loop_index in range(1):
         for model_name in models:
 
             model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
@@ -396,6 +396,7 @@ if __name__ == '__main__':
 
             unformatted_result_save_location = result_save_location + 'unformatted_result.tsv'
             formatted_result_save_location = result_save_location + 'formatted_result.tsv'
+            no_header_result_save_location = result_save_location + 'no_headerformatted_result.tsv'
 
             best_prediction_result, best_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_overall_f1_score, best_ind_f1_score, best_ind_precision, best_ind_recall, epoch_data = main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location)
 
@@ -427,6 +428,7 @@ if __name__ == '__main__':
             os.makedirs(result_save_location, exist_ok=True)
             best_prediction_result.to_csv(unformatted_result_save_location, sep='\t', index=False)
             formatted_prediction_result.to_csv(formatted_result_save_location, sep='\t', index=False)
+            formatted_prediction_result.to_csv(no_header_result_save_location, sep='\t', index=False, header=False)
 
             print("Result files saved")
 
