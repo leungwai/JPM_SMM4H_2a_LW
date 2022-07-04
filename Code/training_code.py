@@ -356,7 +356,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
 
 if __name__ == '__main__':
-    n_epochs = 1
+    n_epochs = 10
     models = ['bert-base-uncased', 'roberta-base']
     
     #model saving parameters
@@ -386,7 +386,7 @@ if __name__ == '__main__':
     all_epoch_data = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     
 
-    for loop_index in range(1):
+    for loop_index in range(5):
         for model_name in models:
 
             model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
