@@ -54,6 +54,7 @@ def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_g
         tmp_tr_accuracy = accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
         tr_accuracy += tmp_tr_accuracy
     
+
         # gradient clipping
         torch.nn.utils.clip_grad_norm_(
             parameters=model.parameters(), max_norm=max_grad_norm
@@ -138,7 +139,7 @@ def testing(model, testing_loader, labels_to_ids, device):
             test_label = [id.item() for id in labels]
             test_pred = [id.item() for id in predictions]
 
-            batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+            batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'stance'])
             
             temp_fm_f1_score, temp_fm_precision, temp_fm_recall, temp_saho_f1_score, temp_saho_precision, temp_saho_recall, temp_sc_f1_score, temp_sc_precision, temp_sc_recall = calculate_f1(batch_prediction_data)
 
@@ -162,7 +163,7 @@ def testing(model, testing_loader, labels_to_ids, device):
     predictions = [id.item() for id in eval_preds]
     
     # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
-    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'stance'])
     
     
     eval_loss = eval_loss / nb_eval_steps
@@ -193,13 +194,13 @@ def calculate_f1(prediction_data):
 
     # splitting data into label and prediction of respective classes
     fm_label = fm_df['Orig'].tolist()
-    fm_pred = fm_df['Stance'].tolist()
+    fm_pred = fm_df['stance'].tolist()
 
     saho_label = saho_df['Orig'].tolist()
-    saho_pred = saho_df['Stance'].tolist()
+    saho_pred = saho_df['stance'].tolist()
 
     sc_label = sc_df['Orig'].tolist()
-    sc_pred = sc_df['Stance'].tolist()
+    sc_pred = sc_df['stance'].tolist()
 
     # running performance metrics of each class
     print("Running performance metrics")
@@ -268,7 +269,6 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
     best_ind_recall = [0,0,0]
 
     all_epoch_data = pd.DataFrame(index=[0,1,2,3,4,5,6,7,8,9], columns=['overall_f1', 'dev_accuracy', 'fm_f1', 'fm_precision', 'fm_recall', 'saho_f1', 'saho_precision', 'saho_recall', 'sc_f1', 'sc_precision', 'sc_recall'])
-
 
     for epoch in range(n_epochs):
         start = time.time()
@@ -356,7 +356,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
 
 if __name__ == '__main__':
-    n_epochs = 1
+    n_epochs = 10
     models = ['bert-base-uncased', 'roberta-base']
     
     #model saving parameters
@@ -381,22 +381,21 @@ if __name__ == '__main__':
 
     # final f1 performance metric
     all_best_overall_f1_score = pd.DataFrame(index=[0,1,2,3,4], columns=models)
-
-    # epoch data
-    all_epoch_data = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     
 
-    for loop_index in range(1):
+    for loop_index in range(5):
         for model_name in models:
 
             model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
             model_load_location = None
 
+            epoch_save_location = '../saved_epoch_2a/' + model_name + '/' + str(loop_index) + '/' 
+            epoch_save_name = epoch_save_location + '/epoch_info.tsv'
+
             result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/'
 
             unformatted_result_save_location = result_save_location + 'unformatted_result.tsv'
             formatted_result_save_location = result_save_location + 'formatted_result.tsv'
-            no_header_result_save_location = result_save_location + 'no_headerformatted_result.tsv'
 
             best_prediction_result, best_dev_acc, best_test_acc, best_tb_acc, best_epoch, best_tb_epoch, best_overall_f1_score, best_ind_f1_score, best_ind_precision, best_ind_recall, epoch_data = main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location)
 
@@ -419,7 +418,8 @@ if __name__ == '__main__':
             all_best_ind_recall.at[loop_index, model_name] = best_ind_recall
 
             # Get all epoch info 
-            all_epoch_data.at[loop_index, model_name] = epoch_data
+            os.makedirs(epoch_save_location, exist_ok=True)
+            epoch_data.to_csv(epoch_save_name, sep='\t')
 
             print("\n Prediction results")
             print(best_prediction_result)
@@ -428,7 +428,6 @@ if __name__ == '__main__':
             os.makedirs(result_save_location, exist_ok=True)
             best_prediction_result.to_csv(unformatted_result_save_location, sep='\t', index=False)
             formatted_prediction_result.to_csv(formatted_result_save_location, sep='\t', index=False)
-            formatted_prediction_result.to_csv(no_header_result_save_location, sep='\t', index=False, header=False)
 
             print("Result files saved")
 
@@ -448,9 +447,6 @@ if __name__ == '__main__':
     print("\n All best recall")
     print(all_best_ind_recall)
 
-    print("\n All epoch data")
-    print(all_epoch_data)
-
     #saving all results into tsv
 
     os.makedirs('../results/', exist_ok=True)
@@ -459,7 +455,6 @@ if __name__ == '__main__':
     all_best_ind_f1_score.to_csv('../results/all_best_ind_f1_score.tsv', sep='\t')
     all_best_ind_precision.to_csv('../results/all_best_ind_precision.tsv', sep='\t')
     all_best_ind_recall.to_csv('../results/all_best_ind_recall.tsv', sep='\t')
-    all_epoch_data.to_csv('../results/all_epoch_data.tsv', sep='\t')
 
     print("Everything successfully completed")
 
