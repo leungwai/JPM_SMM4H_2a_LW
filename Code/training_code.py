@@ -385,7 +385,9 @@ if __name__ == '__main__':
 
     for loop_index in range(5):
         for model_name in models:
-
+            print('Running loop', loop_index)
+            print()
+            
             model_save_location = '../saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
             model_load_location = None
 
