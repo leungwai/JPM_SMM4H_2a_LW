@@ -5,7 +5,7 @@ from torch import cuda
 from torch.utils.data import Dataset, DataLoader
 from transformers import pipeline
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score, confusion_matrix
 from load_data import initialize_data
 from reading_datasets import read_task
 from labels_to_ids import task7_labels_to_ids
@@ -142,7 +142,7 @@ def testing(model, testing_loader, labels_to_ids, device):
             batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
             
             temp_fm_f1_score, temp_fm_precision, temp_fm_recall, temp_saho_f1_score, temp_saho_precision, temp_saho_recall, temp_sc_f1_score, temp_sc_precision, temp_sc_recall = calculate_f1(batch_prediction_data)
-
+            
             eval_fm_f1 += temp_fm_f1_score
             eval_fm_precision += temp_fm_precision
             eval_fm_recall += temp_fm_recall
@@ -162,9 +162,11 @@ def testing(model, testing_loader, labels_to_ids, device):
     labels = [id.item() for id in eval_labels]
     predictions = [id.item() for id in eval_preds]
     
+    
     # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
     overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
-    
+
+    overall_fm_classification_report, overall_fm_confusion_matrix, overall_saho_classification_report, overall_saho_confusion_matrix, overall_sc_classification_report, overall_sc_confusion_matrix = calculate_overall_f1(overall_prediction_data)
     
     eval_loss = eval_loss / nb_eval_steps
     eval_accuracy = eval_accuracy / nb_eval_steps
@@ -184,13 +186,14 @@ def testing(model, testing_loader, labels_to_ids, device):
     #print(f"Validation Loss: {eval_loss}")
     #print(f"Validation Accuracy: {eval_accuracy}")
 
-    return overall_prediction_data, eval_accuracy, eval_fm_f1, eval_fm_precision, eval_fm_recall, eval_saho_f1, eval_saho_precision, eval_saho_recall, eval_sc_f1, eval_sc_precision, eval_sc_recall 
+    return overall_prediction_data, eval_accuracy, eval_fm_f1, eval_fm_precision, eval_fm_recall, eval_saho_f1, eval_saho_precision, eval_saho_recall, eval_sc_f1, eval_sc_precision, eval_sc_recall, overall_fm_classification_report, overall_fm_confusion_matrix, overall_saho_classification_report, overall_saho_confusion_matrix, overall_sc_classification_report, overall_sc_confusion_matrix
 
 
 def calculate_f1(prediction_data):
     fm_df = prediction_data.loc[prediction_data['Claim'] == 'face masks']
     saho_df = prediction_data.loc[prediction_data['Claim'] == 'stay at home orders']
     sc_df = prediction_data.loc[prediction_data['Claim'] == 'school closures']
+
 
     # splitting data into label and prediction of respective classes
     fm_label = fm_df['Orig'].tolist()
@@ -217,9 +220,38 @@ def calculate_f1(prediction_data):
     sc_recall = recall_score(sc_label, sc_pred, labels=[0,1], average='macro')
 
     print("Finished running performance metrics")
-    return fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, saho_precision, saho_recall
-    
-    
+    return fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall
+
+
+def calculate_overall_f1(prediction_data):
+    fm_df = prediction_data.loc[prediction_data['Claim'] == 'face masks']
+    saho_df = prediction_data.loc[prediction_data['Claim'] == 'stay at home orders']
+    sc_df = prediction_data.loc[prediction_data['Claim'] == 'school closures']
+
+    # splitting data into label and prediction of respective classes
+    fm_label = fm_df['Orig'].tolist()
+    fm_pred = fm_df['Stance'].tolist()
+
+    saho_label = saho_df['Orig'].tolist()
+    saho_pred = saho_df['Stance'].tolist()
+
+    sc_label = sc_df['Orig'].tolist()
+    sc_pred = sc_df['Stance'].tolist()
+
+    # running performance metrics of each class
+    print("Running overall performance metrics")
+    fm_classification_report = classification_report(fm_label, fm_pred)
+    fm_confusion_matrix = confusion_matrix(fm_label, fm_pred)
+
+    saho_classification_report = classification_report(saho_label, saho_pred)
+    saho_confusion_matrix = confusion_matrix(saho_label, saho_pred)
+
+    sc_classification_report = classification_report(sc_label, sc_pred)
+    sc_confusion_matrix = confusion_matrix(sc_label, sc_pred)
+
+
+    print("Finished running overall performance metrics")
+    return fm_classification_report, fm_confusion_matrix, saho_classification_report, saho_confusion_matrix, sc_classification_report, sc_confusion_matrix
 
     
 
@@ -278,7 +310,8 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
         model = train(epoch, train_loader, model, optimizer, device, grad_step)
         
         #testing and logging
-        dev_overall_prediction, dev_accuracy, dev_fm_f1, dev_fm_precision, dev_fm_recall, dev_saho_f1, dev_saho_precision, dev_saho_recall, dev_sc_f1, dev_sc_precision, dev_sc_recall = testing(model, dev_loader, labels_to_ids, device)
+        dev_overall_prediction, dev_accuracy, dev_fm_f1, dev_fm_precision, dev_fm_recall, dev_saho_f1, dev_saho_precision, dev_saho_recall, dev_sc_f1, dev_sc_precision, dev_sc_recall, overall_fm_classification_report, overall_fm_confusion_matrix, overall_saho_classification_report, overall_saho_confusion_matrix, overall_sc_classification_report, overall_sc_confusion_matrix = testing(model, dev_loader, labels_to_ids, device)
+
         print('DEV ACC:', dev_accuracy)
         
         print(' ')
