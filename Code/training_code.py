@@ -356,7 +356,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
 
 if __name__ == '__main__':
-    n_epochs = 10
+    n_epochs = 1
     models = ['bert-base-uncased', 'roberta-base']
     
     #model saving parameters
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     all_best_overall_f1_score = pd.DataFrame(index=[0,1,2,3,4], columns=models)
     
 
-    for loop_index in range(5):
+    for loop_index in range(1):
         for model_name in models:
             print('Running loop', loop_index)
             print()
@@ -451,7 +451,7 @@ if __name__ == '__main__':
 
     #saving all results into tsv
 
-    os.makedirs('../results/', exist_ok=True)
+    os.makedirs('../validating_statistics/', exist_ok=True)
     all_best_overall_f1_score.to_csv('../results/all_best_overall_f1_score.tsv', sep='\t')
     all_best_dev_acc.to_csv('../results/all_best_dev_acc.tsv', sep='\t')
     all_best_ind_f1_score.to_csv('../results/all_best_ind_f1_score.tsv', sep='\t')

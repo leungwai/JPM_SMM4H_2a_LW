@@ -54,7 +54,7 @@ def initialize_data(tokenizer, initialization_input, input_data, labels_to_ids, 
 
 
     params = {'batch_size': batch_size,
-                'shuffle': True,
+                'shuffle': shuffle,
                 'num_workers': 4
                 }
 
