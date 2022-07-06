@@ -139,7 +139,7 @@ def testing(model, testing_loader, labels_to_ids, device):
             test_label = [id.item() for id in labels]
             test_pred = [id.item() for id in predictions]
 
-            batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'stance'])
+            batch_prediction_data = pd.DataFrame(zip(tweet_ids, orig_sentences, topics, test_label, test_pred), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
             
             temp_fm_f1_score, temp_fm_precision, temp_fm_recall, temp_saho_f1_score, temp_saho_precision, temp_saho_recall, temp_sc_f1_score, temp_sc_precision, temp_sc_recall = calculate_f1(batch_prediction_data)
 
@@ -163,7 +163,7 @@ def testing(model, testing_loader, labels_to_ids, device):
     predictions = [id.item() for id in eval_preds]
     
     # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
-    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'stance'])
+    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
     
     
     eval_loss = eval_loss / nb_eval_steps
@@ -194,13 +194,13 @@ def calculate_f1(prediction_data):
 
     # splitting data into label and prediction of respective classes
     fm_label = fm_df['Orig'].tolist()
-    fm_pred = fm_df['stance'].tolist()
+    fm_pred = fm_df['Stance'].tolist()
 
     saho_label = saho_df['Orig'].tolist()
-    saho_pred = saho_df['stance'].tolist()
+    saho_pred = saho_df['Stance'].tolist()
 
     sc_label = sc_df['Orig'].tolist()
-    sc_pred = sc_df['stance'].tolist()
+    sc_pred = sc_df['Stance'].tolist()
 
     # running performance metrics of each class
     print("Running performance metrics")
