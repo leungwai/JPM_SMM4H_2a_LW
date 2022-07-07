@@ -103,7 +103,7 @@ if __name__ == '__main__':
     # final f1 performance metric
     all_overall_f1_score = pd.DataFrame(index=[0,1,2,3,4], columns=models)
 
-    for loop_index in range(1):
+    for loop_index in range(2):
         for model_name in models:
             test_print_statement = 'Testing ' + model_name + ' from loop ' + str(loop_index)
             print(test_print_statement)
@@ -157,11 +157,11 @@ if __name__ == '__main__':
     #saving all results into tsv
 
     os.makedirs('../testing_statistics/', exist_ok=True)
-    all_overall_f1_score.to_csv('../results/all_overall_f1_score.tsv', sep='\t')
-    all_test_acc.to_csv('../results/all_test_acc.tsv', sep='\t')
-    all_ind_f1_score.to_csv('../results/all_ind_f1_score.tsv', sep='\t')
-    all_ind_precision.to_csv('../results/all_ind_precision.tsv', sep='\t')
-    all_ind_recall.to_csv('../results/all_ind_recall.tsv', sep='\t')     
+    all_overall_f1_score.to_csv('../testing_statistics/all_overall_f1_score.tsv', sep='\t')
+    all_test_acc.to_csv('../testing_statistics/all_test_acc.tsv', sep='\t')
+    all_ind_f1_score.to_csv('../testing_statistics/all_ind_f1_score.tsv', sep='\t')
+    all_ind_precision.to_csv('../testing_statistics/all_ind_precision.tsv', sep='\t')
+    all_ind_recall.to_csv('../testing_statistics/all_ind_recall.tsv', sep='\t')     
 
     print("Everything successfully completed")
 
