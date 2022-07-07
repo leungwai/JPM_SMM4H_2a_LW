@@ -341,7 +341,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
         # saving overall data to folder
         
-        report_result_save_location = report_result_save_location + str(epoch) + '/'
+        report_result_save_location = report_result_save_location + '/' + str(epoch) + '/'
 
         os.makedirs(report_result_save_location, exist_ok=True)
         fm_cr_df_location = report_result_save_location + 'fm_classification_report.tsv'
@@ -367,7 +367,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
         # writing prediction accuracy data based on the number of epochs
         all_epoch_data.at[epoch, 'overall_f1'] = dev_net_f1
-        all_epoch_data.at[epoch, 'fm_accuracy'] = dev_accuracy
+        all_epoch_data.at[epoch, 'dev_accuracy'] = dev_accuracy
 
         all_epoch_data.at[epoch, 'fm_f1'] = dev_fm_f1
         all_epoch_data.at[epoch, 'fm_precision'] = dev_fm_precision
@@ -457,7 +457,7 @@ if __name__ == '__main__':
 
             result_save_location = '../saved_data_2a/' + model_name + '/' + str(loop_index) + '/'
 
-            report_result_save_location = '../saved_report_2a/' + model_name + '/' + str(loop_index) + '/'
+            report_result_save_location = '../saved_report_2a/' + model_name + '/' + str(loop_index)
 
             unformatted_result_save_location = result_save_location + 'unformatted_result.tsv'
             formatted_result_save_location = result_save_location + 'formatted_result.tsv'

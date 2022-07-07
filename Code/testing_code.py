@@ -14,7 +14,7 @@ import time
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
-def main(model_load_location):
+def main(model_load_location, report_result_save_location):
     max_len = 256
     batch_size = 32
     grad_step = 1
@@ -50,7 +50,7 @@ def main(model_load_location):
     start = time.time()
 
     # Run the model with unshuffled testing data
-    test_result, test_accuracy, test_fm_f1, test_fm_precision, test_fm_recall, test_saho_f1, test_saho_precision, test_saho_recall, test_sc_f1, test_sc_precision, test_sc_recall = testing(model, test_loader, labels_to_ids, device)
+    test_result, test_accuracy, test_fm_f1, test_fm_precision, test_fm_recall, test_saho_f1, test_saho_precision, test_saho_recall, test_sc_f1, test_sc_precision, test_sc_recall, dev_overall_fm_cr_df, dev_overall_fm_cm_df, dev_overall_saho_cr_df, dev_overall_saho_cm_df, dev_overall_sc_cr_df, dev_overall_sc_cm_df = testing(model, test_loader, labels_to_ids, device)
     print('DEV ACC:', test_accuracy)
 
     print(' ')
@@ -76,6 +76,28 @@ def main(model_load_location):
     test_net_f1 = (1.0/3.0) * (test_fm_f1 + test_saho_f1 + test_sc_f1)
 
     print('TEST NET F1:', test_net_f1)
+
+    # saving overall data to folder
+        
+    report_result_save_location = report_result_save_location + '/'
+
+    os.makedirs(report_result_save_location, exist_ok=True)
+    fm_cr_df_location = report_result_save_location + 'fm_classification_report.tsv'
+    fm_cm_df_location = report_result_save_location + 'fm_confusion_matrix.tsv'
+    
+    saho_cr_df_location = report_result_save_location + 'saho_classification_report.tsv'
+    saho_cm_df_location = report_result_save_location + 'saho_confusion_matrix.tsv'
+    
+    sc_cr_df_location = report_result_save_location + 'sc_classification_report.tsv'
+    sc_cm_df_location = report_result_save_location + 'sc_confusion_matrix.tsv'
+
+
+    dev_overall_fm_cr_df.to_csv(fm_cr_df_location, sep='\t')
+    dev_overall_fm_cm_df.to_csv(fm_cm_df_location, sep='\t')
+    dev_overall_saho_cr_df.to_csv(saho_cr_df_location, sep='\t')
+    dev_overall_saho_cm_df.to_csv(saho_cm_df_location, sep='\t')
+    dev_overall_sc_cr_df.to_csv(sc_cr_df_location, sep='\t')
+    dev_overall_sc_cm_df.to_csv(sc_cm_df_location, sep='\t')
 
     now = time.time()
 
@@ -115,7 +137,9 @@ if __name__ == '__main__':
             unformatted_result_save_location = result_save_location + 'unformatted_test_result.tsv'
             formatted_result_save_location = result_save_location + 'formatted_test_result.tsv'
 
-            test_result, test_acc, tb_acc, overall_f1_score, ind_f1_score, ind_precision, ind_recall = main(model_load_location)
+            report_result_save_location = '../saved_test_report_2a/' + model_name + '/' + str(loop_index)
+
+            test_result, test_acc, tb_acc, overall_f1_score, ind_f1_score, ind_precision, ind_recall = main(model_load_location, report_result_save_location)
 
             # Getting accuracy
             all_test_acc.at[loop_index, model_name] = test_acc
