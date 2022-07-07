@@ -341,7 +341,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
         # saving overall data to folder
         
-        report_result_save_location = report_result_save_location + '/round_' + str(epoch) + '/'
+        report_result_save_location = report_result_save_location + '/epoch_' + str(epoch) + '/'
 
         os.makedirs(report_result_save_location, exist_ok=True)
         fm_cr_df_location = report_result_save_location + 'fm_classification_report.tsv'
