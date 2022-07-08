@@ -391,7 +391,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
             best_ind_f1 = [dev_fm_f1, dev_saho_f1, dev_sc_f1]
             best_ind_precision = [dev_fm_precision, dev_saho_precision, dev_sc_precision]
-            best_ind_recall = [dev_fm_recall, dev_saho_recall, dev_saho_recall]
+            best_ind_recall = [dev_fm_recall, dev_saho_recall, dev_sc_recall]
 
             best_overall_prediction_data = dev_overall_prediction
             
