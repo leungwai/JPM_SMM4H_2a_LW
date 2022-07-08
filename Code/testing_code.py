@@ -125,7 +125,7 @@ if __name__ == '__main__':
     # final f1 performance metric
     all_overall_f1_score = pd.DataFrame(index=[0,1,2,3,4], columns=models)
 
-    for loop_index in range(2):
+    for loop_index in range(5):
         for model_name in models:
             test_print_statement = 'Testing ' + model_name + ' from loop ' + str(loop_index)
             print(test_print_statement)
