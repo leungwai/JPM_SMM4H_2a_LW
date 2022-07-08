@@ -417,6 +417,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
 
 if __name__ == '__main__':
+    train_val_start_time = time.time()
     n_epochs = 10
     models = ['bert-base-uncased', 'roberta-base']
     
@@ -521,9 +522,8 @@ if __name__ == '__main__':
     all_best_ind_precision.to_csv('../validating_statistics/all_best_ind_precision.tsv', sep='\t')
     all_best_ind_recall.to_csv('../validating_statistics/all_best_ind_recall.tsv', sep='\t')
 
-    print("Everything successfully completed")
-
+    train_val_end_time = time.time()
     
-
-
-
+    total_time = (train_val_end_time - train_val_start_time) / 60
+    print("Everything successfully completed")
+    print("Time to complete:", total_time)
