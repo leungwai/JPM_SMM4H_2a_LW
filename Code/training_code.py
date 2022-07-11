@@ -398,7 +398,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
             if model_save_flag:
                 os.makedirs(model_save_location, exist_ok=True)
                 tokenizer.save_pretrained(model_save_location)
-                model.save_pretrained(model_save_location)
+                model.save_pretrained(model_save_location) 
 
         '''if best_tb_acc < test_accuracy_tb:
             best_tb_acc = test_accuracy_tb
