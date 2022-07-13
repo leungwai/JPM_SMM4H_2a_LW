@@ -74,7 +74,7 @@ def train(epoch, training_loader, model, optimizer, device, grad_step = 1, max_g
     return model
 
 
-def testing(model, testing_loader, labels_to_ids, device):
+def validate(model, testing_loader, labels_to_ids, device):
     # put model in evaluation mode
     model.eval()
     
@@ -258,7 +258,57 @@ def calculate_overall_f1(prediction_data):
     print("Finished running overall performance metrics")
     return fm_cr_df, fm_cm_df, saho_cr_df, saho_cm_df, sc_cr_df, sc_cm_df
 
+
+def testing(model, testing_loader, labels_to_ids, device):
+    print("TESTING DATA")
+    # put model in evaluation mode
+    torch.no_grad()
     
+    nb_eval_steps = 0
+    eval_preds = []
+
+    eval_tweet_ids, eval_topics, eval_orig_sentences = [], [], []
+    
+    ids_to_labels = dict((v,k) for k,v in labels_to_ids.items())
+
+    with torch.no_grad():
+        for idx, batch in enumerate(testing_loader):
+            
+            ids = batch['input_ids'].to(device, dtype = torch.long)
+            mask = batch['attention_mask'].to(device, dtype = torch.long)
+
+            # to attach back to prediction data later 
+            tweet_ids = batch['tweet_id']
+            topics = batch['topic']
+            orig_sentences = batch['orig_sentence']
+            
+            #loss, eval_logits = model(input_ids=ids, attention_mask=mask, labels=labels)
+            output = model(input_ids=ids, attention_mask=mask)
+
+            #eval_loss += output['loss'].item()
+
+            nb_eval_steps += 1
+            #nb_eval_examples += labels.size(0)
+        
+            if idx % 100==0:
+                print(f"Went through 100 steps")
+              
+            predictions = torch.argmax(output.logits, axis = 1)
+            
+            eval_preds.extend(predictions)
+
+            eval_tweet_ids.extend(tweet_ids)
+            eval_topics.extend(topics)
+            eval_orig_sentences.extend(orig_sentences)
+
+    predictions = [ids_to_labels[id.item()] for id in eval_preds]
+    
+    # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
+    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, predictions), columns=['id', 'text', 'Claim', 'Stance'])
+
+    return overall_prediction_data
+
+
 
 def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_flag, model_load_location, report_result_save_location):
     #Initialization training parameters
@@ -273,7 +323,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
 
     train_data = read_task(dataset_location , split = 'train')
     dev_data = read_task(dataset_location , split = 'dev')
-    #test_data = read_task(dataset_location , split = 'dev')#load test set
+    
     labels_to_ids = task7_labels_to_ids
     input_data = (train_data, dev_data, labels_to_ids)
 
@@ -291,7 +341,6 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
     #Get dataloaders
     train_loader = initialize_data(tokenizer, initialization_input, train_data, labels_to_ids, shuffle = True)
     dev_loader = initialize_data(tokenizer, initialization_input, dev_data, labels_to_ids, shuffle = True)
-    #test_loader = initialize_data(tokenizer, initialization_input, test_data, labels_to_ids, shuffle = True)#create test loader
 
     best_overall_prediction_data = []
     best_dev_acc = 0
@@ -315,7 +364,7 @@ def main(n_epochs, model_name, model_save_flag, model_save_location, model_load_
         model = train(epoch, train_loader, model, optimizer, device, grad_step)
         
         #testing and logging
-        dev_overall_prediction, dev_accuracy, dev_fm_f1, dev_fm_precision, dev_fm_recall, dev_saho_f1, dev_saho_precision, dev_saho_recall, dev_sc_f1, dev_sc_precision, dev_sc_recall, dev_overall_fm_cr_df, dev_overall_fm_cm_df, dev_overall_saho_cr_df, dev_overall_saho_cm_df, dev_overall_sc_cr_df, dev_overall_sc_cm_df = testing(model, dev_loader, labels_to_ids, device)
+        dev_overall_prediction, dev_accuracy, dev_fm_f1, dev_fm_precision, dev_fm_recall, dev_saho_f1, dev_saho_precision, dev_saho_recall, dev_sc_f1, dev_sc_precision, dev_sc_recall, dev_overall_fm_cr_df, dev_overall_fm_cm_df, dev_overall_saho_cr_df, dev_overall_saho_cm_df, dev_overall_sc_cr_df, dev_overall_sc_cm_df = validate(model, dev_loader, labels_to_ids, device)
 
         print('DEV ACC:', dev_accuracy)
         
