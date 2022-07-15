@@ -251,7 +251,7 @@ def val_testing(model, testing_loader, labels_to_ids, device):
     
     num_overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, num_labels, num_predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
 
-    fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall = calculate_overall_performance_metrics(num_labels, num_predictions)
+    fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall = calculate_overall_performance_metrics(num_overall_prediction_data)
     # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
     overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
 

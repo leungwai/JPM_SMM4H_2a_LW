@@ -90,7 +90,9 @@ if __name__ == '__main__':
             overall_prediction_data, eval_accuracy, net_f1, fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall, overall_fm_cr_df, overall_fm_cm_df, overall_saho_cr_df, overall_saho_cm_df, overall_sc_cr_df, overall_sc_cm_df, eval_logits = main(model_load_location)
 
             # Getting best f1, precision, and recall, accuracy
-            all_best_acc.at[loop_index, model_name] = net_f1
+            all_best_acc.at[loop_index, model_name] = eval_accuracy
+            all_best_f1_score.at[loop_index, model_name] = net_f1
+            
             all_best_ind_f1_score.at[loop_index, model_name] = [fm_f1_score, saho_f1_score, sc_f1_score]
             all_best_ind_precision.at[loop_index, model_name] = [fm_precision, saho_precision, sc_precision]
             all_best_ind_recall.at[loop_index, model_name] = [fm_recall, saho_recall, sc_recall]
@@ -150,8 +152,8 @@ if __name__ == '__main__':
     #saving all results into tsv
 
     os.makedirs('../20_epochs_large_model/eval_testing/validation_stats/', exist_ok=True)
-    all_best_overall_f1_score.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_overall_f1_score.tsv', sep='\t')
-    all_best_dev_acc.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_dev_acc.tsv', sep='\t')
+    all_best_f1_score.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_overall_f1_score.tsv', sep='\t')
+    all_best_acc.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_dev_acc.tsv', sep='\t')
     all_best_ind_f1_score.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_ind_f1_score.tsv', sep='\t')
     all_best_ind_precision.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_ind_precision.tsv', sep='\t')
     all_best_ind_recall.to_csv('../20_epochs_large_model/eval_testing/validation_stats/all_best_ind_recall.tsv', sep='\t')
