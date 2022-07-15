@@ -185,6 +185,120 @@ def validate(model, testing_loader, labels_to_ids, device):
     return overall_prediction_data, eval_accuracy, eval_fm_f1, eval_fm_precision, eval_fm_recall, eval_saho_f1, eval_saho_precision, eval_saho_recall, eval_sc_f1, eval_sc_precision, eval_sc_recall, overall_fm_cr_df, overall_fm_cm_df, overall_saho_cr_df, overall_saho_cm_df, overall_sc_cr_df, overall_sc_cm_df
 
 
+def val_testing(model, testing_loader, labels_to_ids, device):
+    # put model in evaluation mode
+    model.eval()
+    
+    eval_loss, eval_accuracy = 0, 0
+    nb_eval_examples, nb_eval_steps = 0, 0
+
+    eval_preds, eval_labels = [], []
+    eval_tweet_ids, eval_topics, eval_orig_sentences = [], [], []
+    eval_logits = []
+    
+    ids_to_labels = dict((v,k) for k,v in labels_to_ids.items())
+
+    with torch.no_grad():
+        for idx, batch in enumerate(testing_loader):
+            
+            ids = batch['input_ids'].to(device, dtype = torch.long)
+            mask = batch['attention_mask'].to(device, dtype = torch.long)
+            labels = batch['labels'].to(device, dtype = torch.long)
+
+            # to attach back to prediction data later 
+            tweet_ids = batch['tweet_id']
+            topics = batch['topic']
+            orig_sentences = batch['orig_sentence']
+            
+            #loss, eval_logits = model(input_ids=ids, attention_mask=mask, labels=labels)
+            output = model(input_ids=ids, attention_mask=mask, labels=labels)
+
+            eval_loss += output['loss'].item()
+
+            nb_eval_steps += 1
+            nb_eval_examples += labels.size(0)
+        
+            if idx % 100==0:
+                loss_step = eval_loss/nb_eval_steps
+                print(f"Validation loss per 100 evaluation steps: {loss_step}")
+              
+            # compute evaluation accuracy
+            flattened_targets = labels.view(-1) # shape (batch_size * seq_len,)
+            active_logits = output[1].view(-1, model.num_labels) # shape (batch_size * seq_len, num_labels)
+            flattened_predictions = torch.argmax(active_logits, axis=1) # shape (batch_size * seq_len,)
+            
+            # only compute accuracy at active labels
+            active_accuracy = labels.view(-1) != -100 # shape (batch_size, seq_len)
+        
+            labels = torch.masked_select(flattened_targets, active_accuracy)
+            predictions = torch.masked_select(flattened_predictions, active_accuracy)
+            
+            eval_logits.extend(output.logits.cpu().numpy())
+
+            eval_labels.extend(labels)
+            eval_preds.extend(predictions)
+
+            eval_tweet_ids.extend(tweet_ids)
+            eval_topics.extend(topics)
+            eval_orig_sentences.extend(orig_sentences)
+
+
+    num_labels = [id.item() for id in eval_labels]
+    num_predictions = [id.item() for id in eval_preds]      
+
+    labels = [ids_to_labels[id.item()] for id in eval_labels]
+    predictions = [ids_to_labels[id.item()] for id in eval_preds]
+    
+    num_overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, num_labels, num_predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+
+    fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall = calculate_overall_performance_metrics(num_labels, num_predictions)
+    # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
+    overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, labels, predictions), columns=['id', 'text', 'Claim', 'Orig', 'Stance'])
+
+    overall_fm_cr_df, overall_fm_cm_df, overall_saho_cr_df, overall_saho_cm_df, overall_sc_cr_df, overall_sc_cm_df = calculate_overall_f1(overall_prediction_data)
+
+    eval_loss = eval_loss / nb_eval_steps
+    eval_accuracy = accuracy_score(num_labels, num_predictions)
+
+    #print(f"Validation Loss: {eval_loss}")
+    #print(f"Validation Accuracy: {eval_accuracy}")
+
+    return overall_prediction_data, eval_accuracy, fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall, overall_fm_cr_df, overall_fm_cm_df, overall_saho_cr_df, overall_saho_cm_df, overall_sc_cr_df, overall_sc_cm_df, eval_logits
+
+
+def calculate_overall_performance_metrics(prediction_data):
+    fm_df = prediction_data.loc[prediction_data['Claim'] == 'face masks']
+    saho_df = prediction_data.loc[prediction_data['Claim'] == 'stay at home orders']
+    sc_df = prediction_data.loc[prediction_data['Claim'] == 'school closures']
+
+
+    # splitting data into label and prediction of respective classes
+    fm_label = fm_df['Orig'].tolist()
+    fm_pred = fm_df['Stance'].tolist()
+
+    saho_label = saho_df['Orig'].tolist()
+    saho_pred = saho_df['Stance'].tolist()
+
+    sc_label = sc_df['Orig'].tolist()
+    sc_pred = sc_df['Stance'].tolist()
+
+    # running performance metrics of each class
+    print("Running performance metrics")
+    fm_f1_score = f1_score(fm_label, fm_pred, labels=[0,1], average='macro')
+    fm_precision = precision_score(fm_label, fm_pred, labels=[0,1], average='macro')
+    fm_recall = recall_score(fm_label, fm_pred, labels=[0,1], average='macro')
+
+    saho_f1_score = f1_score(saho_label, saho_pred, labels=[0,1], average='macro')
+    saho_precision = precision_score(saho_label, saho_pred, labels=[0,1], average='macro')
+    saho_recall = recall_score(saho_label, saho_pred, labels=[0,1], average='macro')
+
+    sc_f1_score = f1_score(sc_label, sc_pred, labels=[0,1], average='macro')
+    sc_precision = precision_score(sc_label, sc_pred, labels=[0,1], average='macro')
+    sc_recall = recall_score(sc_label, sc_pred, labels=[0,1], average='macro')
+
+    print("Finished running performance metrics")
+    return fm_f1_score, fm_precision, fm_recall, saho_f1_score, saho_precision, saho_recall, sc_f1_score, sc_precision, sc_recall
+
 def calculate_f1(prediction_data):
     fm_df = prediction_data.loc[prediction_data['Claim'] == 'face masks']
     saho_df = prediction_data.loc[prediction_data['Claim'] == 'stay at home orders']
