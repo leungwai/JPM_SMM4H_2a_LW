@@ -33,8 +33,8 @@ def read_test(location, split = 'test'):
         for i, row in enumerate(csv_reader):
             if i > 0:
                 tweet_id = row[0]
-                sentence = row[1].strip()
-                topic = row[2]
+                sentence = row[2].strip()
+                topic = row[1]
                 data.append((tweet_id, sentence, topic))
 
     return data
