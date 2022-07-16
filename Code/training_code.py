@@ -395,7 +395,6 @@ def testing(model, testing_loader, labels_to_ids, device):
             tweet_ids = batch['tweet_id']
             topics = batch['topic']
             orig_sentences = batch['orig_sentence']
-            print("ORIG SENTENCE", orig_sentences)
             
             #loss, eval_logits = model(input_ids=ids, attention_mask=mask, labels=labels)
             output = model(input_ids=ids, attention_mask=mask)
