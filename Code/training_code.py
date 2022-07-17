@@ -382,6 +382,7 @@ def testing(model, testing_loader, labels_to_ids, device):
     eval_preds = []
 
     eval_tweet_ids, eval_topics, eval_orig_sentences = [], [], []
+    eval_logits = []
     
     ids_to_labels = dict((v,k) for k,v in labels_to_ids.items())
 
@@ -410,6 +411,7 @@ def testing(model, testing_loader, labels_to_ids, device):
             predictions = torch.argmax(output.logits, axis = 1)
             
             eval_preds.extend(predictions)
+            eval_logits.extend(torch.softmax(output.logits, axis = 1).cpu().numpy())
 
             eval_tweet_ids.extend(tweet_ids)
             eval_topics.extend(topics)
@@ -420,7 +422,7 @@ def testing(model, testing_loader, labels_to_ids, device):
     # Calculating the f1 score, precision, and recall separately  by breaking the data apart 
     overall_prediction_data = pd.DataFrame(zip(eval_tweet_ids, eval_orig_sentences, eval_topics, predictions), columns=['id', 'text', 'Claim', 'Stance'])
 
-    return overall_prediction_data
+    return overall_prediction_data, eval_logits
 
 
 

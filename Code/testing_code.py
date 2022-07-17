@@ -44,14 +44,14 @@ def main(model_load_location, report_result_save_location):
     start = time.time()
 
     # Run the model with unshuffled testing data
-    test_result = testing(model, test_loader, labels_to_ids, device)
+    test_result, eval_logits = testing(model, test_loader, labels_to_ids, device)
 
     now = time.time()
 
     print('TIME TO COMPLETE:', (now-start)/60 )
     print()
 
-    return test_result
+    return test_result, eval_logits
 
 
 
@@ -68,14 +68,20 @@ if __name__ == '__main__':
 
             model_load_location = '../20_epochs_large_model/saved_models_2a/' + model_name + '/' + str(loop_index) + '/' 
             
-            result_save_location = '../20_epochs_large_model/saved_test_result_2a/' + model_name + '/' + str(loop_index) + '/'
+            result_save_location = '../20_epochs_large_model/saved_test_result_2a_final/' + model_name + '/' + str(loop_index) + '/'
             
             unformatted_result_save_location = result_save_location + 'unformatted_test_result.tsv'
             formatted_result_save_location = result_save_location + 'formatted_test_result.tsv'
 
-            report_result_save_location = '../20_epochs_large_model/saved_test_report_2a/' + model_name + '/' + str(loop_index)
+            report_result_save_location = '../20_epochs_large_model/saved_test_report_2a_final/' + model_name + '/' + str(loop_index)
 
-            test_result = main(model_load_location, report_result_save_location)
+            test_result, eval_logits = main(model_load_location, report_result_save_location)
+
+            eval_logits_location = report_result_save_location + 'eval_logits.tsv'
+            
+            os.makedirs(report_result_save_location, exist_ok=True)
+            format_eval_logits = pd.DataFrame(eval_logits, columns=['0', '1', '2'])
+            format_eval_logits.to_csv(eval_logits_location, sep='\t', index=False)
 
             print("\n Testing results")
             print(test_result)
